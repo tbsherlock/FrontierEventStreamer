@@ -808,6 +808,7 @@ EVENT_REGISTRY: dict[tuple[str, str], Callable] = {
     ("storage_unit", "ItemBurnedEvent"):   ItemBurnedEvent.from_rpc,
     ("storage_unit", "ItemMintedEvent"):   ItemMintedEvent.from_rpc,
     ("storage_unit", "EnergyReleasedEvent"):   EnergyReleasedEvent.from_rpc,
+    ("storage_unit", "EnergyReservedEvent"):   EnergyReservedEvent.from_rpc,
     # turret.move
     ("turret",        "TurretCreatedEvent"):        TurretCreatedEvent.from_rpc,
     ("turret",        "PriorityListUpdatedEvent"):  PriorityListUpdatedEvent.from_rpc,
