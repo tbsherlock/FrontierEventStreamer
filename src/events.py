@@ -18,7 +18,7 @@ This file contains python definitions of events which mirror those found in the 
 
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional, Self
 from datetime import datetime, timezone
 from enum import Enum
@@ -654,8 +654,8 @@ class MetadataChangedEvent:
 class StartEnergyProductionEvent:
     energy_source_id: str
     current_energy_production: int
-    tx_digest: str = "";
-    checkpoint: int = 0;
+    tx_digest: str = ""
+    checkpoint: int = 0
     emitted_at: Optional[datetime] = None
 
     @classmethod
@@ -671,8 +671,8 @@ class StartEnergyProductionEvent:
 @dataclass
 class StopEnergyProductionEvent:
     energy_source_id: str
-    tx_digest: str = "";
-    checkpoint: int = 0;
+    tx_digest: str = ""
+    checkpoint: int = 0
     emitted_at: Optional[datetime] = None
 
     @classmethod
@@ -690,8 +690,8 @@ class EnergyReservedEvent:
     assembly_type_id: int
     energy_reserved: int
     total_reserved_energy: int
-    tx_digest: str = "";
-    checkpoint: int = 0;
+    tx_digest: str = ""
+    checkpoint: int = 0
     emitted_at: Optional[datetime] = None
 
     @classmethod
@@ -712,8 +712,8 @@ class EnergyReleasedEvent:
     assembly_type_id: int
     energy_released: int
     total_reserved_energy: int
-    tx_digest: str = "";
-    checkpoint: int = 0;
+    tx_digest: str = ""
+    checkpoint: int = 0
     emitted_at: Optional[datetime] = None
 
     @classmethod
@@ -734,8 +734,8 @@ class EnergyReleasedEvent:
 class OwnerCapCreatedEvent:
     owner_cap_id: str
     authorized_object_id: str
-    tx_digest: str = "";
-    checkpoint: int = 0;
+    tx_digest: str = ""
+    checkpoint: int = 0
     emitted_at: Optional[datetime] = None
 
     @classmethod
@@ -754,8 +754,8 @@ class OwnerCapTransferred:
     authorized_object_id: str
     previous_owner: str
     owner: str
-    tx_digest: str = "";
-    checkpoint: int = 0;
+    tx_digest: str = ""
+    checkpoint: int = 0
     emitted_at: Optional[datetime] = None
 
     @classmethod
@@ -784,8 +784,11 @@ EVENT_REGISTRY: dict[tuple[str, str], Callable] = {
     ("assembly",     "StatusChangedEvent"):     StatusChangedEvent.from_rpc,
     ("assembly",     "MetadataChangedEvent"):     MetadataChangedEvent.from_rpc,
     ("assembly",     "EnergyReservedEvent"):     EnergyReservedEvent.from_rpc,
+    ("assembly",     "EnergyReleasedEvent"):     EnergyReleasedEvent.from_rpc,
     # character.move
     ("character",    "CharacterCreatedEvent"):     CharacterCreatedEvent.from_rpc,
+    ("character",    "OwnerCapCreatedEvent"):     OwnerCapCreatedEvent.from_rpc,
+    ("character",    "MetadataChangedEvent"):     MetadataChangedEvent.from_rpc,
     # gate.move
     ("gate",         "GateCreatedEvent"):          GateCreatedEvent.from_rpc,
     ("gate",         "GateLinkedEvent"):           GateLinkedEvent.from_rpc,
@@ -804,6 +807,7 @@ EVENT_REGISTRY: dict[tuple[str, str], Callable] = {
     ("storage_unit", "MetadataChangedEvent"):   MetadataChangedEvent.from_rpc,
     ("storage_unit", "ItemBurnedEvent"):   ItemBurnedEvent.from_rpc,
     ("storage_unit", "ItemMintedEvent"):   ItemMintedEvent.from_rpc,
+    ("storage_unit", "EnergyReleasedEvent"):   EnergyReleasedEvent.from_rpc,
     # turret.move
     ("turret",        "TurretCreatedEvent"):        TurretCreatedEvent.from_rpc,
     ("turret",        "PriorityListUpdatedEvent"):  PriorityListUpdatedEvent.from_rpc,
@@ -811,9 +815,16 @@ EVENT_REGISTRY: dict[tuple[str, str], Callable] = {
     ("turret",        "StatusChangedEvent"):        StatusChangedEvent.from_rpc,
     ("turret",        "EnergyReservedEvent"):        EnergyReservedEvent.from_rpc,
     ("turret",        "EnergyReleasedEvent"):        EnergyReleasedEvent.from_rpc,
+    ("turret",        "OwnerCapCreatedEvent"):        OwnerCapCreatedEvent.from_rpc,
+    ("turret",        "MetadataChangedEvent"):        MetadataChangedEvent.from_rpc,
     # network_node.move
     ("network_node",  "NetworkNodeCreatedEvent"):   NetworkNodeCreatedEvent.from_rpc,
     ("network_node",  "FuelEvent"): FuelEvent.from_rpc,
+    ("network_node",  "OwnerCapCreatedEvent"): OwnerCapCreatedEvent.from_rpc,
+    ("network_node",  "StatusChangedEvent"): StatusChangedEvent.from_rpc,
+    ("network_node",  "MetadataChangedEvent"): MetadataChangedEvent.from_rpc,
+    ("network_node",  "StartEnergyProductionEvent"): StartEnergyProductionEvent.from_rpc,
+    ("network_node",  "StopEnergyProductionEvent"): StopEnergyProductionEvent.from_rpc,
     # fuel.move
     ("fuel",          "FuelEvent"):                 FuelEvent.from_rpc,
     ("fuel",          "FuelEfficiencySetEvent"):    FuelEfficiencySetEvent.from_rpc,
