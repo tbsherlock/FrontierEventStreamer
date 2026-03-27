@@ -4,7 +4,7 @@ This is my entry for the 2026 EVE Frontier hackathon.
 
 A checkpoint-driven event scanner for the **EVE Frontier** package on the Sui blockchain. It polls for new checkpoints, drains all on-chain Move events across every watched module, parses them into typed Python dataclasses. It can also scan through chain history for events matching a filter.
 
-Currently development environment running live on [Stillness](http://fes.mywire.org:8776/) 
+Currently development environment running live on [Stillness](http://fes.mywire.org:8766/) 
 
 # Examples
 
