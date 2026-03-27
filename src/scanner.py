@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
@@ -222,12 +223,12 @@ class WorldScanner:
         while True:
             result = await self.rpc.call(
                 "suix_queryEvents",
-                [stream.filter_dict, cursor, self.config.event_page_size, False],  # ascending
+                [stream.filter_dict, cursor, self.config.event_page_size, False],
             )
 
             page = result.get("data", [])
             for raw in page:
-                self._on_event(stream, raw)
+                self._on_event(raw)
                 collected += 1
 
             if result.get("hasNextPage") and result.get("nextCursor"):
@@ -239,26 +240,147 @@ class WorldScanner:
 
         return collected
 
-    # ------------------------------------------------------------------ printing
+    async def scan_module(self, module: str) -> list:
+        """Fetch and return all events for the event specified by the module"""
+        events: list = []
+        cursor = None  # None → start from the beginning of chain history
+        #filter_str = f"{self.config.package_id}::turret::TurretCreatedEvent"
+        #filter_str = f"{self.config.package_id}::turret::MetadataChangedEvent"
 
-    def _on_event(self, stream: FilterStream, raw: dict):
-        # Derive the struct name from the event's type field, e.g.
-        # "0xabc::killmail::KillmailCreatedEvent" → "KillmailCreatedEvent"
-        event_type_str: str = raw.get("type", "")
+        logger.info(f"scan_chain: starting full historical scan for module '{module}' ")
+
+
+        page_num = 0
+        while True:
+            params = [
+                {
+                    "MoveModule": {"package": f"{self.config.package_id}", "module": module},
+                },
+                cursor,  # cursor
+                self.config.event_page_size,  # page size (large enough for a single tx)
+                False,  # ascending within tx
+            ]
+
+            result = await self.rpc.call(
+                "suix_queryEvents",
+                params,
+            )
+
+            page: list[dict] = result.get("data", [])
+            page_num += 1
+
+            for raw in page:
+                evt = self._parse_event(raw)
+                if evt is not None:
+                    events.append(evt)
+
+            has_next = result.get("hasNextPage", False)
+            next_cursor = result.get("nextCursor")
+
+            logger.debug(
+                f"_scan_chain [{module}]: page {page_num} — "
+                f"{len(page)} raw event(s), {len(events)} parsed so far, "
+                f"hasNextPage={has_next}"
+            )
+
+            if has_next and next_cursor:
+                cursor = next_cursor
+            else:
+                break
+
+        logger.info(
+            f"_scan_chain: finished scan for module '{module}' — "
+            f"{len(events)} event(s) collected across {page_num} page(s)"
+        )
+        return events
+
+    async def scan_event(self, module: str, event: str) -> list:
+        """Fetch and return all events for the event specified by the module"""
+        events: list = []
+        cursor = None  # None → start from the beginning of chain history
+
+        event_type = f"{self.config.package_id}::{module}::{event}"
+        logger.info(f"scan_chain: starting full historical scan for '{event_type}' ")
+
+
+        page_num = 0
+        while True:
+            params = [
+                {
+                    "MoveEventType": event_type,
+                },
+                cursor,  # cursor
+                self.config.event_page_size,  # page size (large enough for a single tx)
+                False,  # ascending within tx
+            ]
+
+            result = await self.rpc.call(
+                "suix_queryEvents",
+                params,
+            )
+
+            page: list[dict] = result.get("data", [])
+            page_num += 1
+
+            for raw in page:
+                evt = self._parse_event(raw)
+                if evt is not None:
+                    events.append(evt)
+
+            has_next = result.get("hasNextPage", False)
+            next_cursor = result.get("nextCursor")
+
+            logger.debug(
+                f"_scan_chain [{module}::{event}]: page {page_num} — "
+                f"{len(page)} raw event(s), {len(events)} parsed so far, "
+                f"hasNextPage={has_next}"
+            )
+
+            if has_next and next_cursor:
+                cursor = next_cursor
+            else:
+                break
+
+        logger.info(
+            f"_scan_chain: finished scan for module '{module}::{event}' — "
+            f"{len(events)} event(s) collected across {page_num} page(s)"
+        )
+        return events
+
+
+    # ------------------------------------------------------------------
+
+    def _on_event(self, raw: dict):
+        try:
+            evt = self._parse_event(raw)
+            if evt:
+                self._callback_fn(evt)
+        except Exception as e:
+            traceback.print_exc()
+
+    def _parse_event(self, event_data: dict) -> object:
+        """
+        Parse a single raw RPC event dict into a typed dataclass instance.
+        Returns the parsed event, or None if no parser is registered for it.
+        """
+        event_type_str: str = event_data.get("type", "")
         struct_name = event_type_str.rsplit("::", 1)[-1] if "::" in event_type_str else ""
 
-        key = (stream.module, struct_name)
+        #key = (stream.module, struct_name)
+        key = (event_data.get("transactionModule", "UNKNOWN"), struct_name)
         parser = EVENT_REGISTRY.get(key)
 
         if parser:
             try:
-                evt = parser(raw)
-                self._callback_fn(evt)
-                return
+                evt = parser(event_data)
+                evt.module = event_data["transactionModule"]
+                return evt
             except Exception as exc:
-                logger.error(f"Parse error for {stream.module}::{struct_name}: {exc}")
+                logger.error(f"Parse error for {key}: {exc}")
+                return None
         else:
             logger.warning(f"No parser for {key}")
+            return None
 
     # ------------------------------------------------------------------ helpers
 

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Event Stream</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+    font-size: 13px;
+    background: #0d0d0d;
+    color: #d4d4d4;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* ── header ── */
+  header {
+    padding: 10px 16px;
+    border-bottom: 1px solid #222;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+  header a.gh-link {
+    font-size: 11px;
+    color: #555;
+    text-decoration: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 3px;
+    padding: 2px 8px;
+  }
+  header a.gh-link:hover { color: #aaa; border-color: #444; }
+
+  #status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: #222;
+    color: #888;
+  }
+  #status.connected    { background: #0d2b1a; color: #4caf7d; }
+  #status.disconnected { background: #2b0d0d; color: #cf6679; }
+
+  /* channel pills */
+  #channel-list { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: #1a1a1a;
+    color: #666;
+    border: 1px solid #2a2a2a;
+  }
+  .pill.active { color: #7ec8e3; border-color: #2a4a5a; background: #0d1f27; }
+
+  /* ── column header ── */
+  #feed-header {
+    display: grid;
+    grid-template-columns: 22ch 16ch 28ch 1fr;
+    gap: 0 12px;
+    padding: 4px 16px;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
+    color: #444;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── event feed ── */
+  #feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .event {
+    display: grid;
+    grid-template-columns: 22ch 16ch 28ch 1fr;
+    gap: 0 12px;
+    padding: 5px 16px;
+    border-bottom: 1px solid #161616;
+    line-height: 1.5;
+    animation: fadein 0.15s ease;
+  }
+  .event:hover { background: #141414; }
+
+  @keyframes fadein {
+    from { opacity: 0; background: #1a1a1a; }
+    to   { opacity: 1; background: transparent; }
+  }
+
+  .evt-time       { color: #555; white-space: nowrap; }
+  .evt-module     { color: #7ec8e3; white-space: nowrap; font-weight: 600; }
+  .evt-type       { font-weight: 600; white-space: nowrap; color: #e3c07e; }
+  .evt-desc       { color: #bbb; }
+
+  /* ── filter bars ── */
+  #filter-bars {
+    border-top: 1px solid #1a1a1a;
+    flex-shrink: 0;
+  }
+  .filter-row {
+    padding: 5px 16px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #161616;
+  }
+  .filter-row:last-child { border-bottom: none; }
+  .filter-label {
+    color: #444;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    min-width: 8ch;
+    flex-shrink: 0;
+  }
+  .filter-btn {
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    border: 1px solid #2a2a2a;
+    background: #1a1a1a;
+    color: #555;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s, background 0.1s;
+  }
+  .filter-btn:hover { color: #999; border-color: #3a3a3a; }
+  /* module buttons — blue tint */
+  .filter-btn.mod.on  { color: #7ec8e3; border-color: #2a4a5a; background: #0d1f27; }
+  /* event-type buttons — amber tint */
+  .filter-btn.evt.on  { color: #e3c07e; border-color: #4a3a10; background: #1f1800; }
+
+  /* ── empty state ── */
+  #empty {
+    text-align: center;
+    margin-top: 80px;
+    color: #333;
+  }
+  #empty p { margin-top: 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Frontier Event Stream</h1>
+  <a class="gh-link" href="https://github.com/tbsherlock/FrontierEventStreamer" target="_blank">GitHub ↗</a>
+  <span id="status">connecting…</span>
+  <div id="channel-list"></div>
+</header>
+
+<div id="feed-header">
+  <span>Time</span>
+  <span>Module</span>
+  <span>Event Type</span>
+  <span>Description</span>
+</div>
+
+<div id="feed">
+  <div id="empty">
+    <div>◌</div>
+    <p>Waiting for events…</p>
+  </div>
+</div>
+
+<div id="filter-bars">
+  <div class="filter-row" id="filter-modules">
+    <span class="filter-label">modules</span>
+    <!-- injected dynamically -->
+  </div>
+  <div class="filter-row" id="filter-events">
+    <span class="filter-label">events</span>
+    <!-- injected dynamically -->
+  </div>
+</div>
+
+<script>
+// ── Configuration ────────────────────────────────────────────────────────────
+const SERVER = "http://localhost:8765";
+
+// All modules (SSE subscription channels)
+const MODULES = [
+  "assembly", "character", "gate", "killmail", "storage_unit",
+  "turret", "network_node", "fuel", "inventory", "status", "metadata",
+  "energy", "access"
+];
+
+// All known event types (derived from EVENT_REGISTRY + energy/access classes)
+const EVENT_TYPES = [
+  "AssemblyCreatedEvent",
+  "CharacterCreatedEvent",
+  "GateCreatedEvent", "GateLinkedEvent", "GateUnlinkedEvent", "JumpEvent",
+  "ExtensionAuthorizedEvent",
+  "KillmailCreatedEvent",
+  "StorageUnitCreatedEvent",
+  "TurretCreatedEvent", "PriorityListUpdatedEvent",
+  "NetworkNodeCreatedEvent",
+  "FuelEvent", "FuelEfficiencySetEvent", "FuelEfficiencyRemovedEvent",
+  "ItemMintedEvent", "ItemBurnedEvent", "ItemDepositedEvent",
+  "ItemWithdrawnEvent", "ItemDestroyedEvent",
+  "StatusChangedEvent",
+  "MetadataChangedEvent",
+  "StartEnergyProductionEvent", "StopEnergyProductionEvent",
+  "EnergyReservedEvent", "EnergyReleasedEvent",
+  "OwnerCapCreatedEvent", "OwnerCapTransferred",
+];
+
+const MAX_ROWS = 3000;
+
+// ── State ────────────────────────────────────────────────────────────────────
+const hiddenModules    = new Set();
+const hiddenEventTypes = new Set();
+let eventSource = null;
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const feed          = document.getElementById("feed");
+const empty         = document.getElementById("empty");
+const statusEl      = document.getElementById("status");
+const chanList      = document.getElementById("channel-list");
+const filterModules = document.getElementById("filter-modules");
+const filterEvents  = document.getElementById("filter-events");
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+buildFilterUI();
+connect();
+
+// ── Filter UI ────────────────────────────────────────────────────────────────
+function buildFilterUI() {
+  // Header pills (subscribe channels = all modules)
+  //MODULES.forEach(mod => {
+  //  const pill = document.createElement("span");
+  //  pill.className = "pill";
+  //  pill.textContent = mod;
+  //  pill.id = `pill-${mod}`;
+  //  chanList.appendChild(pill);
+  //});
+
+  // Module filter row
+  MODULES.forEach(mod => {
+    const btn = document.createElement("button");
+    btn.className = "filter-btn mod on";
+    btn.textContent = mod;
+    btn.addEventListener("click", () => {
+      toggleFilter(hiddenModules, mod, btn);
+      applyVisibility();
+    });
+    filterModules.appendChild(btn);
+  });
+
+  // Event-type filter row
+  EVENT_TYPES.forEach(et => {
+    const btn = document.createElement("button");
+    btn.className = "filter-btn evt on";
+    btn.textContent = et;
+    btn.addEventListener("click", () => {
+      toggleFilter(hiddenEventTypes, et, btn);
+      applyVisibility();
+    });
+    filterEvents.appendChild(btn);
+  });
+}
+
+function toggleFilter(hiddenSet, key, btn) {
+  if (hiddenSet.has(key)) {
+    hiddenSet.delete(key);
+    btn.classList.add("on");
+  } else {
+    hiddenSet.add(key);
+    btn.classList.remove("on");
+  }
+}
+
+function isRowVisible(row) {
+  return !hiddenModules.has(row.dataset.module) &&
+         !hiddenEventTypes.has(row.dataset.eventType);
+}
+
+function applyVisibility() {
+  feed.querySelectorAll(".event").forEach(row => {
+    row.style.display = isRowVisible(row) ? "" : "none";
+  });
+}
+
+// ── SSE connection ───────────────────────────────────────────────────────────
+function connect() {
+  const url = `${SERVER}/subscribe?channels=${MODULES.join(",")}`;
+  eventSource = new EventSource(url);
+
+  eventSource.onopen = () => {
+    setStatus("connected");
+    MODULES.forEach(mod => {
+      const p = document.getElementById(`pill-${mod}`);
+      if (p) p.classList.add("active");
+    });
+  };
+
+  eventSource.onmessage = e => {
+    try { addEvent(JSON.parse(e.data)); }
+    catch { /* ignore malformed */ }
+  };
+
+  eventSource.onerror = () => {
+    setStatus("disconnected");
+    MODULES.forEach(mod => {
+      const p = document.getElementById(`pill-${mod}`);
+      if (p) p.classList.remove("active");
+    });
+    eventSource.close();
+    setTimeout(connect, 3000);
+  };
+}
+
+function setStatus(state) {
+  statusEl.textContent = state;
+  statusEl.className = state;
+}
+
+// ── Render event ─────────────────────────────────────────────────────────────
+function addEvent(ev) {
+  empty.style.display = "none";
+
+  const row = document.createElement("div");
+  row.className = "event";
+  row.dataset.module    = ev.channel   || "";
+  row.dataset.eventType = ev.type      || "";
+  row.style.display     = isRowVisible(row) ? "" : "none";
+
+  row.innerHTML = `
+    <span class="evt-time">${esc(ev.time || "—")}</span>
+    <span class="evt-module">${esc(ev.channel || "—")}</span>
+    <span class="evt-type">${esc(ev.type || "—")}</span>
+    <span class="evt-desc">${esc(ev.description || "")}</span>
+  `;
+
+  const firstEvent = feed.querySelector(".event");
+  firstEvent ? feed.insertBefore(row, firstEvent) : feed.appendChild(row);
+
+  const rows = feed.querySelectorAll(".event");
+  if (rows.length > MAX_ROWS) rows[rows.length - 1].remove();
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+</script>
+</body>
+</html>
