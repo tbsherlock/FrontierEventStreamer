@@ -8,13 +8,16 @@ Currently development environment running live on [Stillness](http://fes.mywire.
 
 # Examples
 
-Included are two example usages of this concept.
+Included are three example usages of this package.
 
-## examples/whwebserver.py
+## example 1: webhook server
 Uses the event streamer to listen for the latest on-chain events. A WebHook server then allows consumers to subscribe to channels to then be streamed events. A web app acts as a web hook consumer and display events on a front-end.
 
-## examples/enricher.py
+## example 2: enricher
 Scans through events in order to populate a database. This additional data can then be used to produced enriched events. For example, 'CharacterCreatedEvent' and 'MetadataChangedEvent' can be scanned to produce a lookup table to resolve player id's to their names. This data can then be used to create more meaningful events, such as KillMails that include player names and tribe. 
+
+## example 3: discord bot
+Uses the event streamer to listen for the latest on-chain events. On new events, the discord bot will notify a specified channel.
 
 
 ## Quick Start
